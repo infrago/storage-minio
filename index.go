@@ -1,6 +1,7 @@
 package store_object
 
 import (
+	"github.com/infrago/infra"
 	"github.com/infrago/store"
 )
 
@@ -10,9 +11,9 @@ func Driver() store.Driver {
 
 func init() {
 	drv := Driver()
-	store.Register("object", drv)
-	store.Register("s3", drv)
-	store.Register("minio", drv)
-	store.Register("oss", drv)
-	store.Register("cos", drv)
+	infra.Register("object", drv)
+	infra.Register("s3", drv)
+	infra.Register("minio", drv)
+	infra.Register("oss", drv)
+	infra.Register("cos", drv)
 }
