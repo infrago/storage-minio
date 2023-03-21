@@ -1,2 +1,2 @@
 # store-object
-infra.go object storage store driver.
+infra.Go object storage store driver.
