@@ -1,11 +1,11 @@
-package store_object
+package storage_object
 
 import (
 	"github.com/infrago/infra"
-	"github.com/infrago/store"
+	"github.com/infrago/storage"
 )
 
-func Driver() store.Driver {
+func Driver() storage.Driver {
 	return &objectDriver{}
 }
 

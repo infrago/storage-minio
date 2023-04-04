@@ -1,4 +1,4 @@
-module github.com/infrago/store-default
+module github.com/infrago/storage-default
 
 go 1.17
 
