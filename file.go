@@ -183,7 +183,7 @@ func (this *objectConnect) storage(source string, coding storage.File) error {
 
 func (this *objectConnect) storaging(file storage.File) (string, string, error) {
 	//使用hash的hex hash 的前4位，生成2级目录
-	//共256*256个目录
+	//共256*256个目录,
 	hash := util.Sha256(file.Hash())
 	hashPath := path.Join(hash[0:2], hash[2:4])
 
