@@ -1,4 +1,4 @@
-package storage_object
+package storage_minio
 
 import (
 	"context"
@@ -19,24 +19,24 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-//-------------------- objectBase begin -------------------------
+//-------------------- minioBase begin -------------------------
 
 var (
 	errBrowseNotSupported = errors.New("Store browse not supported.")
 )
 
 type (
-	objectDriver  struct{}
-	objectConnect struct {
+	minioDriver  struct{}
+	minioConnect struct {
 		mutex  sync.RWMutex
 		health storage.Health
 
 		instance *storage.Instance
-		setting  objectSetting
+		setting  minioSetting
 
 		client *minio.Client
 	}
-	objectSetting struct {
+	minioSetting struct {
 		Endpoint string
 		Region   string
 		Bucket   string
@@ -49,8 +49,8 @@ type (
 )
 
 // 连接
-func (driver *objectDriver) Connect(instance *storage.Instance) (storage.Connect, error) {
-	setting := objectSetting{
+func (driver *minioDriver) Connect(instance *storage.Instance) (storage.Connect, error) {
+	setting := minioSetting{
 		Bucket: infra.Name(), Endpoint: "127.0.0.1:9000",
 	}
 
@@ -87,14 +87,14 @@ func (driver *objectDriver) Connect(instance *storage.Instance) (storage.Connect
 		setting.UseSSL = vv
 	}
 
-	return &objectConnect{
+	return &minioConnect{
 		instance: instance, setting: setting,
 	}, nil
 
 }
 
 // 打开连接
-func (this *objectConnect) Open() error {
+func (this *minioConnect) Open() error {
 	ctx := context.Background()
 	setting := this.setting
 
@@ -123,21 +123,21 @@ func (this *objectConnect) Open() error {
 	return nil
 }
 
-func (this *objectConnect) Health() storage.Health {
+func (this *minioConnect) Health() storage.Health {
 	this.mutex.RLock()
 	defer this.mutex.RUnlock()
 	return this.health
 }
 
 // 关闭连接
-func (this *objectConnect) Close() error {
+func (this *minioConnect) Close() error {
 	if this.client != nil {
 		this.client = nil
 	}
 	return nil
 }
 
-func (this *objectConnect) Upload(orginal string, opts ...storage.Option) (string, error) {
+func (this *minioConnect) Upload(orginal string, opt storage.UploadOption) (string, error) {
 	stat, err := os.Stat(orginal)
 	if err != nil {
 		return "", err
@@ -148,26 +148,21 @@ func (this *objectConnect) Upload(orginal string, opts ...storage.Option) (strin
 		return "", errors.New("directory upload not supported")
 	}
 
-	opt := storage.Option{}
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
 	ext := util.Extension(orginal)
 
 	if opt.Key == "" {
 		//如果没有指定key，使用文件的hash
 		//使用hash的前4位，生成2级目录
 		hash, hex := this.filehash(orginal)
-		if opt.Root == "" {
-			opt.Root = path.Join(hex[0:2], hex[2:4])
+		if opt.Prefix == "" {
+			opt.Prefix = path.Join(hex[0:2], hex[2:4])
 		} else {
-			opt.Root = path.Join(opt.Root, hex[0:2], hex[2:4])
+			opt.Prefix = path.Join(opt.Prefix, hex[0:2], hex[2:4])
 		}
 		opt.Key = hash
 	}
 
-	file := this.instance.File(opt.Root, opt.Key, ext, stat.Size())
+	file := this.instance.File(opt.Prefix, opt.Key, ext, stat.Size())
 	if file == nil {
 		return "", errors.New("create file error")
 	}
@@ -202,7 +197,7 @@ func (this *objectConnect) Upload(orginal string, opts ...storage.Option) (strin
 	return file.Code(), nil
 }
 
-func (this *objectConnect) Fetch(file storage.File, opts ...storage.Option) (storage.Stream, error) {
+func (this *minioConnect) Fetch(file storage.File, opt storage.FetchOption) (storage.Stream, error) {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return nil, err
@@ -214,46 +209,45 @@ func (this *objectConnect) Fetch(file storage.File, opts ...storage.Option) (sto
 	return this.client.GetObject(ctx, bucketName, sFile, minio.GetObjectOptions{})
 }
 
-func (this *objectConnect) Download(file storage.File, opts ...storage.Option) (string, error) {
+func (this *minioConnect) Download(file storage.File, opt storage.DownloadOption) (string, error) {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return "", err
 	}
 
-	target, err := this.instance.Download(file)
-	if err != nil {
-		return "", nil
+	if opt.Target == "" {
+		return "", errors.New("invalid target")
 	}
 
-	_, err = os.Stat(target)
+	_, err = os.Stat(opt.Target)
 	if err == nil {
 		//无错误，文件已经存在，直接返回
-		return target, nil
+		return opt.Target, nil
 	}
 
 	bucketName := this.setting.Bucket
-	objectName := sFile
+	minioName := sFile
 
 	ctx := context.Background()
-	getErr := this.client.FGetObject(ctx, bucketName, objectName, target, minio.GetObjectOptions{})
+	getErr := this.client.FGetObject(ctx, bucketName, minioName, opt.Target, minio.GetObjectOptions{})
 	if getErr != nil {
 		return "", getErr
 	}
 
-	return target, nil
+	return opt.Target, nil
 }
 
-func (this *objectConnect) Remove(file storage.File) error {
+func (this *minioConnect) Remove(file storage.File, opt storage.RemoveOption) error {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return err
 	}
 
 	bucketName := this.setting.Bucket
-	objectName := sFile
+	minioName := sFile
 
 	ctx := context.Background()
-	rmErr := this.client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+	rmErr := this.client.RemoveObject(ctx, bucketName, minioName, minio.RemoveObjectOptions{})
 	if rmErr != nil {
 		return rmErr
 	}
@@ -261,27 +255,27 @@ func (this *objectConnect) Remove(file storage.File) error {
 	return nil
 }
 
-func (this *objectConnect) Browse(file storage.File, opts ...storage.Option) (string, error) {
+func (this *minioConnect) Browse(file storage.File, opt storage.BrowseOption) (string, error) {
 	return "", errBrowseNotSupported
 }
 
-//-------------------- objectBase end -------------------------
+//-------------------- minioBase end -------------------------
 
 // storaging 生成存储路径
-func (this *objectConnect) filepath(file storage.File) (string, string, error) {
+func (this *minioConnect) filepath(file storage.File) (string, string, error) {
 	name := file.Key()
 	if file.Type() != "" {
 		name = fmt.Sprintf("%s.%s", file.Key(), file.Type())
 	}
 
-	sfile := path.Join(file.Root(), name)
+	sfile := path.Join(file.Prefix(), name)
 	spath := path.Dir(sfile)
 
 	return spath, sfile, nil
 }
 
 // 算文件的hash
-func (this *objectConnect) filehash(file string) (string, string) {
+func (this *minioConnect) filehash(file string) (string, string) {
 	if f, e := os.Open(file); e == nil {
 		defer f.Close()
 		h := sha1.New()

@@ -1,4 +1,4 @@
-package storage_object
+package storage_minio
 
 import (
 	"github.com/infrago/infra"
@@ -6,7 +6,7 @@ import (
 )
 
 func Driver() storage.Driver {
-	return &objectDriver{}
+	return &minioDriver{}
 }
 
 func init() {
