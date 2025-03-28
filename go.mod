@@ -1,4 +1,4 @@
-module github.com/infrago/storage-object
+module github.com/infrago/storage-minio
 
 go 1.17
 

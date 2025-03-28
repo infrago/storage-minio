@@ -11,9 +11,5 @@ func Driver() storage.Driver {
 
 func init() {
 	drv := Driver()
-	infra.Register("object", drv)
-	infra.Register("s3", drv)
 	infra.Register("minio", drv)
-	infra.Register("oss", drv)
-	infra.Register("cos", drv)
 }
