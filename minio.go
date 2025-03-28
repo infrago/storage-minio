@@ -205,8 +205,13 @@ func (this *minioConnect) Fetch(file storage.File, opt storage.FetchOption) (sto
 
 	bucketName := this.setting.Bucket
 
+	getOpts := minio.GetObjectOptions{}
+	if opt.Start > 0 || opt.End > 0 {
+		getOpts.SetRange(opt.Start, opt.End)
+	}
+
 	ctx := context.Background()
-	return this.client.GetObject(ctx, bucketName, sFile, minio.GetObjectOptions{})
+	return this.client.GetObject(ctx, bucketName, sFile, getOpts)
 }
 
 func (this *minioConnect) Download(file storage.File, opt storage.DownloadOption) (string, error) {
