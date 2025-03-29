@@ -137,15 +137,15 @@ func (this *minioConnect) Close() error {
 	return nil
 }
 
-func (this *minioConnect) Upload(orginal string, opt storage.UploadOption) (string, error) {
+func (this *minioConnect) Upload(orginal string, opt storage.UploadOption) (*storage.File, error) {
 	stat, err := os.Stat(orginal)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	//250327不再支持目录上传
 	if stat.IsDir() {
-		return "", errors.New("directory upload not supported")
+		return nil, errors.New("directory upload not supported")
 	}
 
 	ext := util.Extension(orginal)
@@ -164,13 +164,13 @@ func (this *minioConnect) Upload(orginal string, opt storage.UploadOption) (stri
 
 	file := this.instance.File(opt.Prefix, opt.Key, ext, stat.Size())
 	if file == nil {
-		return "", errors.New("create file error")
+		return nil, errors.New("create file error")
 	}
 
 	//保存文件
 	_, tfile, err := this.filepath(file)
 	if err != nil { //文件路径错误
-		return "", err
+		return nil, err
 	}
 
 	metadata := map[string]string{}
@@ -191,13 +191,13 @@ func (this *minioConnect) Upload(orginal string, opt storage.UploadOption) (stri
 		Expires: opt.Expires,
 	})
 	if putErr != nil {
-		return "", putErr
+		return nil, putErr
 	}
 
-	return file.Code(), nil
+	return file, nil
 }
 
-func (this *minioConnect) Fetch(file storage.File, opt storage.FetchOption) (storage.Stream, error) {
+func (this *minioConnect) Fetch(file *storage.File, opt storage.FetchOption) (storage.Stream, error) {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func (this *minioConnect) Fetch(file storage.File, opt storage.FetchOption) (sto
 	return this.client.GetObject(ctx, bucketName, sFile, getOpts)
 }
 
-func (this *minioConnect) Download(file storage.File, opt storage.DownloadOption) (string, error) {
+func (this *minioConnect) Download(file *storage.File, opt storage.DownloadOption) (string, error) {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return "", err
@@ -242,7 +242,7 @@ func (this *minioConnect) Download(file storage.File, opt storage.DownloadOption
 	return opt.Target, nil
 }
 
-func (this *minioConnect) Remove(file storage.File, opt storage.RemoveOption) error {
+func (this *minioConnect) Remove(file *storage.File, opt storage.RemoveOption) error {
 	_, sFile, err := this.filepath(file)
 	if err != nil {
 		return err
@@ -260,14 +260,14 @@ func (this *minioConnect) Remove(file storage.File, opt storage.RemoveOption) er
 	return nil
 }
 
-func (this *minioConnect) Browse(file storage.File, opt storage.BrowseOption) (string, error) {
+func (this *minioConnect) Browse(file *storage.File, opt storage.BrowseOption) (string, error) {
 	return "", errBrowseNotSupported
 }
 
 //-------------------- minioBase end -------------------------
 
 // storaging 生成存储路径
-func (this *minioConnect) filepath(file storage.File) (string, string, error) {
+func (this *minioConnect) filepath(file *storage.File) (string, string, error) {
 	name := file.Key()
 	if file.Type() != "" {
 		name = fmt.Sprintf("%s.%s", file.Key(), file.Type())
