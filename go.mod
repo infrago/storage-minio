@@ -1,5 +1,5 @@
 module github.com/infrago/storage-minio
 
-go 1.17
+go 1.18
 
 
