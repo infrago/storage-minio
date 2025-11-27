@@ -17,6 +17,8 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/gofrs/flock"
 )
 
 //-------------------- minioBase begin -------------------------
@@ -100,7 +102,7 @@ func (this *minioConnect) Open() error {
 
 	mc, err := minio.New(setting.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(setting.AccessKey, setting.SecretKey, ""),
-		Secure: setting.UseSSL,
+		Secure: setting.UseSSL, Region: setting.Region,
 	})
 	if err != nil {
 		return err
@@ -224,11 +226,20 @@ func (this *minioConnect) Download(file *storage.File, opt storage.DownloadOptio
 		return "", errors.New("invalid target")
 	}
 
+	lock, err := lockFile(opt.Target)
+	if err != nil {
+		return "", err
+	}
+	defer lock.Unlock()
+
 	_, err = os.Stat(opt.Target)
 	if err == nil {
 		//无错误，文件已经存在，直接返回
 		return opt.Target, nil
 	}
+
+	// 删除旧文件（如果存在）
+	_ = os.Remove(opt.Target)
 
 	bucketName := this.setting.Bucket
 	minioName := sFile
@@ -291,4 +302,13 @@ func (this *minioConnect) filehash(file string) (string, string) {
 		}
 	}
 	return "", ""
+}
+
+func lockFile(path string) (*flock.Flock, error) {
+	lockPath := path + ".lock"
+	f := flock.New(lockPath)
+
+	// 阻塞等待锁
+	err := f.Lock()
+	return f, err
 }
