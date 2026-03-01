@@ -1,2 +1,2 @@
 # storage-minio
-bamgoo minio storage driver.
+infrago minio storage driver.
