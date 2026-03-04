@@ -3,8 +3,8 @@ module github.com/infrago/storage-minio
 go 1.25.3
 
 require (
-	github.com/infrago/infra v0.9.0
-	github.com/infrago/storage v0.9.0
+	github.com/infrago/infra v0.10.0
+	github.com/infrago/storage v0.10.0
 	github.com/minio/minio-go/v7 v7.0.76
 )
 
