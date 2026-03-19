@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/infrago/infra"
 	"github.com/infrago/storage"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -34,7 +35,7 @@ type (
 )
 
 func (d *minioDriver) Connect(instance *storage.Instance) (storage.Connection, error) {
-	setting := minioSetting{Endpoint: "127.0.0.1:9000", Bucket: "default"}
+	setting := minioSetting{Endpoint: "127.0.0.1:9000", Bucket: resolveBucket(instance, infra.Identity().Project)}
 	if v, ok := instance.Setting["endpoint"].(string); ok && v != "" {
 		setting.Endpoint = v
 	}
@@ -68,10 +69,21 @@ func (d *minioDriver) Connect(instance *storage.Instance) (storage.Connection, e
 	if v, ok := instance.Setting["ssl"].(bool); ok {
 		setting.UseSSL = v
 	}
-	if setting.Bucket == "" {
-		setting.Bucket = "default"
-	}
 	return &minioConnection{instance: instance, setting: setting}, nil
+}
+
+func resolveBucket(instance *storage.Instance, project string) string {
+	bucket := project
+	if bucket == "" {
+		bucket = "default"
+	}
+	if instance == nil || instance.Setting == nil {
+		return bucket
+	}
+	if v, ok := instance.Setting["bucket"].(string); ok && v != "" {
+		return v
+	}
+	return bucket
 }
 
 func (c *minioConnection) Open() error {
